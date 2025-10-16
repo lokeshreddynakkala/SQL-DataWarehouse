@@ -1,0 +1,268 @@
+use datawarehouse
+--- cleaning crm_cust_info
+
+select * from bronze.crm_cust_info
+
+-- checking duplicate and null values in cst_id 
+
+
+select cst_id,count(*) from bronze.crm_cust_info group by cst_id having COUNT(cst_id) >1 or cst_id is null
+
+--removing duplicate and null values in cst_id 
+
+select distinct * from(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank from bronze.crm_cust_info) as t where cst_id is not null
+
+select cst_id from(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank from bronze.crm_cust_info) as t where rank = 1 and cst_id is not null
+
+
+
+select cst_id from(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank from bronze.crm_cust_info) as t where rank = 1 and cst_id is not null
+ 
+ 
+ 
+ --checking for white spaces in cst_firstname
+
+select cst_id from bronze.crm_cust_info where cst_firstname <> trim(cst_firstname)
+
+
+-- removing white spaces in cst_firstname
+
+select TRIM(cst_firstname) from bronze.crm_cust_info
+
+
+select cst_id,TRIM(cst_firstname) as cst_firstname from(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank from bronze.crm_cust_info) as t where rank = 1 and cst_id is not null
+
+--checking for white spaces in cst_lastname
+
+select cst_id from bronze.crm_cust_info where cst_lastname <> trim(cst_lastname)
+
+
+-- removing white spaces in cst_lastname
+
+select TRIM(cst_lastname) from bronze.crm_cust_info
+
+
+
+select cst_id,TRIM(cst_firstname) as cst_firstname,TRIM(cst_lastname) as cst_lastname
+from
+(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank 
+from 
+bronze.crm_cust_info) as t where rank = 1 and cst_id is not null   
+
+
+--checking for white spaces in  cst_marital_status
+
+select * from bronze.crm_cust_info where cst_marital_status <> trim(cst_marital_status)
+
+
+--no white spaces in it
+
+--checking constraints in  cst_marital_status
+
+select distinct cst_marital_status from bronze.crm_cust_info
+
+-- there is only M and S
+--standardizing the cst_marital_status
+
+select cst_id,case
+when UPPER(trim(cst_marital_status)) = 'M' then 'Married'
+when UPPER(trim(cst_marital_status)) = 'S' then 'Single'
+end  as cst_marital_status from bronze.crm_cust_info
+
+
+
+select cst_id,TRIM(cst_firstname) as cst_firstname,TRIM(cst_lastname) as cst_lastname,
+case
+when UPPER(trim(cst_marital_status)) = 'M' then 'Married'
+when UPPER(trim(cst_marital_status)) = 'S' then 'Single'
+end  as cst_marital_status 
+from
+(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank 
+from 
+bronze.crm_cust_info) as t where rank = 1 and cst_id is not null
+
+--checking for white spaces in  cst_gndr
+
+select * from bronze.crm_cust_info where cst_gndr <> trim(cst_gndr)
+
+
+--no white spaces in it
+
+--checking constraints in  cst_gndr
+
+select distinct cst_gndr from bronze.crm_cust_info
+
+-- there is only M and F
+--standardizing the cst_gndr
+
+select case when UPPER(trim(cst_gndr)) = 'M' then 'Male'
+when upper(trim(cst_gndr)) = 'F' then 'Female'
+else 'n/a'
+
+
+
+select 
+cst_id,
+cst_key,
+TRIM(cst_firstname) as cst_firstname,
+TRIM(cst_lastname) as cst_lastname,
+case
+when UPPER(trim(cst_marital_status)) = 'M' then 'Married'
+when UPPER(trim(cst_marital_status)) = 'S' then 'Single'
+else 'n/a'
+end  as cst_marital_status,
+case
+when UPPER(trim(cst_gndr)) = 'M' then 'Male'
+when UPPER(trim(cst_gndr)) = 'F' then 'Female'
+else 'n/a'
+end  as cst_gndr,
+cst_create_date
+from
+(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank 
+from bronze.crm_cust_info) 
+as t
+where rank = 1 and cst_id is not null
+
+--insertion of cleaned data
+
+insert into silver.crm_cust_info (
+            cst_id, 
+			cst_key, 
+			cst_firstname, 
+			cst_lastname, 
+			cst_marital_status, 
+			cst_gndr,
+			cst_create_date)
+			(select 
+cst_id,
+cst_key,
+TRIM(cst_firstname) as cst_firstname,
+TRIM(cst_lastname) as cst_lastname,
+case
+when UPPER(trim(cst_marital_status)) = 'M' then 'Married'
+when UPPER(trim(cst_marital_status)) = 'S' then 'Single'
+else 'n/a'
+end  as cst_marital_status,
+case
+when UPPER(trim(cst_gndr)) = 'M' then 'Male'
+when UPPER(trim(cst_gndr)) = 'F' then 'Female'
+else 'n/a'
+end  as cst_gndr,
+cst_create_date
+from
+(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank 
+from bronze.crm_cust_info) 
+as t
+where rank = 1 and cst_id is not null);
+
+
+
+
+
+
+
+
+--cleaning crm_prd_info
+
+use datawarehouse
+
+select * from bronze.crm_prd_info
+
+
+--checking duplicates and null valuse in crm_prd_info
+
+select prd_id,count(prd_id) as prd_count from bronze.crm_prd_info group by prd_id having(count(prd_id)) > 1 or prd_id is null
+
+--checking white spaces in prd_key-
+
+select * from bronze.crm_prd_info where prd_key <> trim( prd_key)
+-- no white spaces--
+
+-- spliting prd_key into cat_id and prd_key--
+
+select replace(substring(prd_key,1,5),'-','_') as cat_id,substring(prd_key,7,len(prd_key)) as prd_key from bronze.crm_prd_info
+
+select 
+prd_id,
+replace(substring(prd_key,1,5),'-','_') as cat_id,
+substring(prd_key,7,len(prd_key)) as prd_key 
+from bronze.crm_prd_info
+
+
+--checking negitive and zero values in prd_cost--
+
+select * from bronze.crm_prd_info where prd_cost <= 0 
+
+-- no negitive and zero values
+
+-- converting null values as zero --
+
+select 
+ISNULL(prd_cost,0) as prd_cost from bronze.crm_prd_info 
+
+
+select 
+prd_id,
+substring(prd_key,1,5) as cat_id,
+replace(substring(prd_key,7,len(prd_key)),'-','_') as prd_key, 
+ISNULL(prd_cost,0) as prd_cost
+from bronze.crm_prd_info
+
+-- checking constraints in prd_line
+
+select distinct prd_line from bronze.crm_prd_info
+
+--there are only M,R,S,T--
+
+--standardizang the prd_line --
+
+select case 
+WHEN UPPER(TRIM(prd_line)) = 'M' THEN 'Mountain'
+when UPPER(trim(prd_line)) = 'R' then 'Road'
+when UPPER(trim(prd_line)) = 'S' then 'Other Sales'
+when UPPER(trim(prd_line)) = 'T' then 'Touring'
+else 'n/a'
+end as prd_line
+from bronze.crm_prd_info
+
+
+select 
+prd_id,
+substring(prd_key,1,5) as cat_id,
+replace(substring(prd_key,7,len(prd_key)),'-','_') as prd_key, 
+ISNULL(prd_cost,0) as prd_cost,
+case 
+WHEN UPPER(TRIM(prd_line)) = 'M' THEN 'Mountain'
+when UPPER(trim(prd_line)) = 'R' then 'Road'
+when UPPER(trim(prd_line)) = 'S' then 'Other Sales'
+when UPPER(trim(prd_line)) = 'T' then 'Touring'
+else 'n/a'
+end as prd_line
+from bronze.crm_prd_info
+
+--checking for prd_end_dt id lesser the prd_start_date--
+
+select prd_id,prd_start_dt,prd_end_dt from  bronze.crm_prd_info where prd_start_dt > prd_end_dt
+
+
+--Correcting prd_end_dt--
+
+select prd_key,cast(prd_start_dt as date) as prd_start_date,cast(lead(prd_start_dt) over( partition by prd_key order by prd_start_dt)-1 as date) as prd_end_dt from  bronze.crm_prd_info
+
+select 
+prd_id,
+replace(substring(prd_key,1,5),'-','_') as cat_id,
+substring(prd_key,7,len(prd_key)) as prd_key,
+prd_nm,
+ISNULL(prd_cost,0) as prd_cost,
+case 
+WHEN UPPER(TRIM(prd_line)) = 'M' THEN 'Mountain'
+when UPPER(trim(prd_line)) = 'R' then 'Road'
+when UPPER(trim(prd_line)) = 'S' then 'Other Sales'
+when UPPER(trim(prd_line)) = 'T' then 'Touring'
+else 'n/a'
+end as prd_line,
+cast(prd_start_dt as date) as prd_start_date,
+cast(lead(prd_start_dt) over( partition by prd_key order by prd_start_dt)-1 as date) as prd_end_dt
+from bronze.crm_prd_info
+
