@@ -190,4 +190,17 @@ ELSE 'n/a'
 end as gen
 from bronze.erp_cust_az12
 
+--------------------------------------------------------  silver.erp_loc_a101 --------------------------------------------------------------------------------------
 
+ INSERT INTO silver.erp_loc_a101 (
+			cid,
+			cntry
+		)
+ select REPLACE(cid,'-','') ,
+ case 
+when trim(cntry) in ('DE','Germany') then 'Germany'
+when trim(cntry) in ('USA','US','United States') then 'United States'
+when trim(cntry) = '' or cntry IS NULL  then 'n/a'
+ else trim(cntry)
+ end as cntry 
+ from bronze.erp_loc_a101
