@@ -106,3 +106,48 @@ ELSE 'n/a'
 end as gen
 from bronze.erp_cust_az12
 
+
+----------------------------------------------------------cleaning bronze.erp_loc_a101------------------------------------------------------------------
+select * from bronze.erp_loc_a101
+
+-- checking relationships--
+select * from silver.crm_cust_info
+
+select * from bronze.erp_loc_a101
+
+--checking for null and whitespaces in cid,cntry--
+
+select * from bronze.erp_loc_a101 where cid is null or cid <> trim(cid) or cntry is null or cntry <> trim(cntry)
+
+--null values in cntry --
+
+--removing '-' in cid 
+
+select REPLACE(cid,'-','') from bronze.erp_loc_a101
+
+-- finging distinct values in cntry--
+
+select distinct cntry from bronze.erp_loc_a101
+
+-- handling inconstinces--
+
+select 
+case 
+when trim(cntry) in ('DE','Germany') then 'Germany'
+when trim(cntry) in ('USA','US','United States') then 'United States'
+when trim(cntry) = '' or cntry IS NULL  then 'n/a'
+ else trim(cntry)
+ end as cntry
+ from  bronze.erp_loc_a101
+
+
+ -- final query---
+
+ select REPLACE(cid,'-','') ,
+ case 
+when trim(cntry) in ('DE','Germany') then 'Germany'
+when trim(cntry) in ('USA','US','United States') then 'United States'
+when trim(cntry) = '' or cntry IS NULL  then 'n/a'
+ else trim(cntry)
+ end as cntry 
+ from bronze.erp_loc_a101
