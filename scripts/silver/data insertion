@@ -1,4 +1,4 @@
---------------------------------- ------------------------fix crm_cust_info----------------------------------------------------------------------------
+---------------------------------------------------------fix silver.crm_cust_info----------------------------------------------------------------------------
 
 
 insert into silver.crm_cust_info (
@@ -33,7 +33,7 @@ where rank = 1 and cst_id is not null);
 
 
 
----------------------------------------------------------- fix crm_prd_info---------------------------------------------------------------------------------------
+---------------------------------------------------------- fix silver.crm_prd_info---------------------------------------------------------------------------------------
 
 
 -- The IF and Go is use to check the table silver.crm_prd_info is creared or not  if it present the drop it Else Create new table because while cleaning the product key is splited in is and product key 
@@ -83,7 +83,7 @@ cast(lead(prd_start_dt) over( partition by prd_key order by prd_start_dt)-1 as d
 from bronze.crm_prd_info
 
 
------------------------------------------------------------- fix crm sales_details -------------------------------------------------------------------------
+------------------------------------------------------------ fix silver.crm sales_details -------------------------------------------------------------------------
 
 
 
@@ -149,3 +149,17 @@ when sls_price <> sls_sales/sls_quantity then sls_sales/sls_quantity
 else sls_price
 end as sls_price
 from bronze.crm_sales_details
+
+-------------------------------------------------------fix silver.erp_px_cat_g1v2--------------------------------------------------------------------------
+INSERT INTO silver.erp_px_cat_g1v2 (
+			id,
+			cat,
+			subcat,
+			maintenance
+		)
+select 
+id,
+cat,
+subcat,
+maintenance
+from bronze.erp_px_cat_g1v2
