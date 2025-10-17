@@ -1,5 +1,5 @@
 use datawarehouse
---- cleaning crm_cust_info
+------------------------------------------------- cleaning crm_cust_info-----------------------------------------------------------------------------
 
 select * from bronze.crm_cust_info
 
@@ -100,7 +100,7 @@ when upper(trim(cst_gndr)) = 'F' then 'Female'
 else 'n/a'
 
 
-
+--final quary--
 select 
 cst_id,
 cst_key,
@@ -123,48 +123,11 @@ from bronze.crm_cust_info)
 as t
 where rank = 1 and cst_id is not null
 
---insertion of cleaned data
-
-insert into silver.crm_cust_info (
-            cst_id, 
-			cst_key, 
-			cst_firstname, 
-			cst_lastname, 
-			cst_marital_status, 
-			cst_gndr,
-			cst_create_date)
-			(select 
-cst_id,
-cst_key,
-TRIM(cst_firstname) as cst_firstname,
-TRIM(cst_lastname) as cst_lastname,
-case
-when UPPER(trim(cst_marital_status)) = 'M' then 'Married'
-when UPPER(trim(cst_marital_status)) = 'S' then 'Single'
-else 'n/a'
-end  as cst_marital_status,
-case
-when UPPER(trim(cst_gndr)) = 'M' then 'Male'
-when UPPER(trim(cst_gndr)) = 'F' then 'Female'
-else 'n/a'
-end  as cst_gndr,
-cst_create_date
-from
-(select *,ROW_NUMBER() over(partition by cst_id order by  cst_create_date desc) as rank 
-from bronze.crm_cust_info) 
-as t
-where rank = 1 and cst_id is not null);
 
 
 
+-------------------------------------------------------cleaning crm_prd_info---------------------------------------------------------------------
 
-
-
-
-
---cleaning crm_prd_info
-
-use datawarehouse
 
 select * from bronze.crm_prd_info
 
@@ -249,6 +212,8 @@ select prd_id,prd_start_dt,prd_end_dt from  bronze.crm_prd_info where prd_start_
 
 select prd_key,cast(prd_start_dt as date) as prd_start_date,cast(lead(prd_start_dt) over( partition by prd_key order by prd_start_dt)-1 as date) as prd_end_dt from  bronze.crm_prd_info
 
+
+--final quary--
 select 
 prd_id,
 replace(substring(prd_key,1,5),'-','_') as cat_id,
@@ -265,4 +230,136 @@ end as prd_line,
 cast(prd_start_dt as date) as prd_start_date,
 cast(lead(prd_start_dt) over( partition by prd_key order by prd_start_dt)-1 as date) as prd_end_dt
 from bronze.crm_prd_info
+
+
+
+
+----------------------------------------------cleaning bronze.crm_sales_details -------------------------------------------------------------------------------
+
+select * from bronze.crm_sales_details 
+
+	-- checking the connections of how bronze.crm_sales_details is related with silver.crm_prd_info
+	select * from bronze.crm_sales_details 
+	select * from silver.crm_prd_info
+
+
+	--checking for is there anys values sls_prd_key not in prd_key
+select * from bronze.crm_sales_details where sls_prd_key not in
+(select prd_key from silver.crm_prd_info)
+
+-- checking for white spaces in sls_ord_num,sls_prd_key
+
+select * from bronze.crm_sales_details where sls_ord_num != trim(sls_ord_num)
+
+
+select * from bronze.crm_sales_details where sls_prd_key != trim(sls_prd_key)
+
+select * from bronze.crm_sales_details where sls_ord_num != trim(sls_ord_num)
+--no whitespaces--
+
+select sls_ord_num,sls_prd_key,sls_cust_id from bronze.crm_sales_details
+
+-- checking  values length less then 8 and converting  to null and  date type of sls_order_dt,sls_due_dt,sls_ship_dt
+
+select * from bronze.crm_sales_details where len(sls_order_dt) != 8 
+
+select * from bronze.crm_sales_details where len(sls_due_dt) != 8 
+
+select * from bronze.crm_sales_details where len(sls_ship_dt) != 8 
+
+
+select 
+case
+when len(sls_order_dt) != 8 then null
+else cast(cast(sls_order_dt as varchar) as date)
+end as sls_order_dt,
+case
+when len(sls_ship_dt) != 8 then null 
+else cast(cast(sls_ship_dt as varchar) as date)
+end as sls_ship_date,
+case
+when len(sls_due_dt) != 8 then null 
+else cast(cast(sls_due_dt as varchar) as date)
+end as sls_due_dt
+from bronze.crm_sales_details
+
+
+select sls_ord_num,sls_prd_key,sls_cust_id,case
+when len(sls_order_dt) != 8 then null
+else cast(cast(sls_order_dt as varchar) as date)
+end as sls_order_dt,
+case
+when len(sls_ship_dt) != 8 then null 
+else cast(cast(sls_ship_dt as varchar) as date)
+end as sls_ship_date,
+case
+when len(sls_due_dt) != 8 then null 
+else cast(cast(sls_due_dt as varchar) as date)
+end as sls_due_dt
+from bronze.crm_sales_details
+
+-- checking for null,zero,negitive values in sls_sales,sls_quantity,sls_price
+
+select * from bronze.crm_sales_details where sls_sales <= 0 or sls_sales is null
+
+select * from bronze.crm_sales_details where sls_quantity <= 0 or sls_quantity is null
+
+select * from bronze.crm_sales_details where sls_price <= 0 or sls_price is null
+
+--quality check of  sls_sales,sls_quantity,sls_price
+
+select * from bronze.crm_sales_details where sls_sales !=  sls_quantity*sls_price
+
+select * from bronze.crm_sales_details where sls_quantity <> sls_sales/sls_price
+
+select * from bronze.crm_sales_details where sls_price <> sls_sales/sls_quantity
+
+-- handling the inconsistent values 
+
+select 
+case 
+when  sls_sales !=  sls_quantity*sls_price then sls_quantity*sls_price
+else sls_sales 
+end as sls_sales,
+case 
+when  sls_quantity <> sls_sales/sls_price then sls_sales/sls_price
+else sls_quantity
+end as sls_quantity,
+case 
+when sls_price <> sls_sales/sls_quantity then sls_sales/sls_quantity
+else sls_price
+end as sls_price
+from bronze.crm_sales_details
+
+
+--final quary--
+select 
+sls_ord_num,
+sls_prd_key,
+sls_cust_id,
+case
+when len(sls_order_dt) != 8 then null
+else cast(cast(sls_order_dt as varchar) as date)
+end as sls_order_dt,
+case
+when len(sls_ship_dt) != 8 then null 
+else cast(cast(sls_ship_dt as varchar) as date)
+end as sls_ship_date,
+case
+when len(sls_due_dt) != 8 then null 
+else cast(cast(sls_due_dt as varchar) as date)
+end as sls_due_dt,
+case 
+when  sls_sales !=  sls_quantity*sls_price then sls_quantity*sls_price
+else sls_sales 
+end as sls_sales,
+case 
+when  sls_quantity <> sls_sales/sls_price then sls_sales/sls_price
+else sls_quantity
+end as sls_quantity,
+case 
+when sls_price <> sls_sales/sls_quantity then sls_sales/sls_quantity
+else sls_price
+end as sls_price
+from bronze.crm_sales_details
 
