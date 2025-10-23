@@ -14,7 +14,7 @@ case
 when ci.cst_gndr <> 'n/a' then ci.cst_gndr
 else coalesce (ca.gen,'n/a')
 end                                 as gender,
-cst_create_date                     as birthdate,
+ca.bdate                            as birthdate,
 la.cntry                            as country
 from silver.crm_cust_info ci
 left join silver.erp_cust_az12 ca
