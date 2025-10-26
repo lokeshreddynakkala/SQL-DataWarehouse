@@ -51,3 +51,73 @@ SELECT
         ELSE 'No Change'
     END AS py_change
 	FROM yearly_product_sales
+
+	
+-----Part to Whole Analysis-----
+with category_sales as(
+select p.category
+,sum(f.sales_amount) as total_sales 
+from gold.fact_sales f  left join gold.dim_products p 
+on p.product_key= f.product_key
+group by p.category )
+
+select category,
+total_sales,
+sum(total_sales)over() as overall_sales 
+,Round((cast(total_sales as float)/sum(total_sales)over())*100,2) as percentage_of_total 
+from category_sales 
+order by total_sales desc
+
+----Data Segmentation----
+
+with product_segments as(
+select 
+product_key,
+product_name,
+cost,
+case
+when cost < 100 then 'Below 100'
+when cost between 100 and 500 then '100-500'
+when cost between 500 and 1000 then '500-1000'
+else 'Above 1000'
+end as cost_range
+from gold.dim_products
+)
+select 
+cost_range,
+count(*) as total_products 
+from Product_segments 
+group by cost_range
+
+--- Segmenting customers based on ther ---
+with customer_spending as (
+select 
+c.customer_key,
+sum(f.sales_amount) as total_spending,
+min(f.order_date) as first_order,
+max(f.order_date) as last_order,
+DATEDIFF(month,min(f.order_date),max(f.order_date)) as lifespan
+from gold.fact_sales f 
+left join gold.dim_customers c 
+on f.customer_key=c.customer_key
+group by c.customer_key
+)
+select
+customer_segment,
+count(customer_key) as total_customers
+from(
+select 
+customer_key,
+case 
+when lifespan >= 12 AND total_spending > 5000 then 'VIP'
+when lifespan >= 12 AND total_spending <= 5000 then 'Regular'
+else 'New'
+end as customer_segment
+from customer_spending 
+)
+as segmented_customers
+group by customer_segment
+order by total_customers desc
+
+
+
